@@ -1,7 +1,7 @@
 /* НПА · Пожарная профилактика — офлайн-справочник. Без фреймворков, работает из кэша. */
 (function () {
   'use strict';
-  const { norm, splitLines, makeMatcher, headingLevel } = window.NPA;
+  const { norm, isBox, isRow, cells, splitLines, makeMatcher, headingLevel } = window.NPA;
 
   const $ = (s, el = document) => el.querySelector(s);
   const main = $('#main');
@@ -205,7 +205,7 @@
       <span class="code"><span class="dot"></span>${hlQuery(d.short, q)}<span class="kind">· ${esc(d.kind)}</span></span>
       <span class="title">${hlQuery(d.name, q)}</span>
       ${d.note || d.date ? `<span class="meta">${hlQuery([d.date ? 'от ' + d.date : '', d.note].filter(Boolean).join(' · '), q)}</span>` : ''}
-      <span class="side">${fav ? `<span class="fav" title="В избранном">${icon('star', 'sm')}</span>` : ''}${d.text ? '' : '<span class="nofile">нет текста</span>'}${icon('chev', 'sm')}</span>
+      <span class="side">${fav ? `<span class="fav" title="В избранном">${icon('star', 'sm')}</span>` : ''}${!d.text ? '<span class="nofile">нет текста</span>' : d.text.src && d.text.src.status === 'partial' ? '<span class="nofile">неполный</span>' : ''}${icon('chev', 'sm')}</span>
     </a></li>`;
   }
 
@@ -407,22 +407,22 @@
     return res;
   }
   function lineHtml(l, lv, i, prevTable, nextTable, inner) {
-    const body = inner != null ? inner : esc(l);
-    if (l.includes(' | ')) {
+    const body = (inner != null ? inner : esc(l)).replace(/\[рис\.\]/g, '<span class="fig" title="Рисунок, формула или сноска есть только в оригинале">рис.</span>');
+    if (isRow(l)) {
       const cls = 'tr' + (prevTable ? '' : ' first') + (nextTable ? '' : ' last');
-      return `<div class="${cls}" data-i="${i}">${inner != null ? inner : l.split(' | ').map((c) => `<span>${esc(c)}</span>`).join('')}</div>`;
+      return `<div class="${cls}" data-i="${i}">${inner != null ? inner : cells(l).map(([a, b]) => `<span>${esc(l.slice(a, b))}</span>`).join('')}</div>`;
     }
+    if (isBox(l)) return `<pre class="pg" data-i="${i}">${body}</pre>`;
     if (lv) return `<h${lv + 1} class="h h${lv}" id="p${i}" data-i="${i}">${body}</h${lv + 1}>`;
     return `<p data-i="${i}">${body}</p>`;
   }
   function tableInner(l, ranges, curIdx, base) {
     // Подсветка внутри ячеек таблицы: разбиваем диапазоны по ячейкам.
-    const cells = l.split(' | ');
-    let off = 0, k = base, out = '';
-    for (const c of cells) {
-      const rr = ranges.filter((r) => r[0] >= off && r[1] <= off + c.length).map((r) => [r[0] - off, r[1] - off]);
-      out += `<span>${hl(c, rr, curIdx, k)}</span>`;
-      k += rr.length; off += c.length + 3;
+    let k = base, out = '';
+    for (const [a, b] of cells(l)) {
+      const rr = ranges.filter((r) => r[0] >= a && r[1] <= b).map((r) => [r[0] - a, r[1] - a]);
+      out += `<span>${hl(l.slice(a, b), rr, curIdx, k)}</span>`;
+      k += rr.length;
     }
     return { html: out, n: k - base };
   }
@@ -462,7 +462,8 @@
           ${d.text && d.text.src ? `<div class="src">${d.text.src.url ? `<a href="${esc(d.text.src.url)}" target="_blank" rel="noopener">Источник ${icon('ext', 'sm')}</a>` : ''}
             ${d.text.ed ? `<span>Редакция: ${esc(d.text.ed)}</span>` : ''}
             ${d.text.src.retrieved ? `<span>Проверено ${esc(d.text.src.retrieved)}</span>` : ''}
-            ${d.text.src.status === 'partial' ? '<span>Текст неполный</span>' : ''}</div>` : ''}
+            </div>` : ''}
+          ${d.text && d.text.src && d.text.src.status === 'partial' ? `<div class="note warn"><b>Текст неполный.</b> В открытых источниках документ доступен с сокращениями: часть разделов или приложений может отсутствовать. Сверяйте с официальной публикацией.</div>` : ''}
         </header>
         <div class="doc" id="doc" lang="ru">${d.textUrl ? '<p class="hint"><span class="spinner"></span> Открываю документ…</p>' : ''}</div>
       </div>`;
@@ -492,8 +493,8 @@
       for (let c = 0; c < T.lines.length; c += CH) {
         html += '<div class="ch">';
         for (let i = c; i < Math.min(c + CH, T.lines.length); i++) {
-          const isT = T.lines[i].includes(' | ');
-          html += lineHtml(T.lines[i], T.lv[i], i, isT && i > 0 && T.lines[i - 1].includes(' | '), isT && i + 1 < T.lines.length && T.lines[i + 1].includes(' | '));
+          const isT = isRow(T.lines[i]);
+          html += lineHtml(T.lines[i], T.lv[i], i, isT && i > 0 && isRow(T.lines[i - 1]), isT && i + 1 < T.lines.length && isRow(T.lines[i + 1]));
         }
         html += '</div>';
       }
@@ -506,8 +507,8 @@
     });
 
     function renderLine(i, inner) {
-      const l = T.lines[i], isT = l.includes(' | ');
-      const html = lineHtml(l, T.lv[i], i, isT && i > 0 && T.lines[i - 1].includes(' | '), isT && i + 1 < T.lines.length && T.lines[i + 1].includes(' | '), inner);
+      const l = T.lines[i], isT = isRow(l);
+      const html = lineHtml(l, T.lv[i], i, isT && i > 0 && isRow(T.lines[i - 1]), isT && i + 1 < T.lines.length && isRow(T.lines[i + 1]), inner);
       const tmp = document.createElement('div'); tmp.innerHTML = html;
       const n = tmp.firstChild; els[i].replaceWith(n); els[i] = n;
     }
@@ -522,7 +523,7 @@
           const rr = matcher.ranges(T.nl[i]);
           const l = T.lines[i];
           let inner, n;
-          if (l.includes(' | ')) { const t = tableInner(l, rr, -1, matches.length); inner = t.html; n = t.n; }
+          if (isRow(l)) { const t = tableInner(l, rr, -1, matches.length); inner = t.html; n = t.n; }
           else { inner = hl(l, rr, -1, matches.length); n = rr.length; }
           for (let k = 0; k < n; k++) matches.push(i);
           renderLine(i, inner); marked.add(i);

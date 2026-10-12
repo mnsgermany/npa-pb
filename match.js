@@ -4,10 +4,23 @@
 
   function norm(s) { return s.toLowerCase().replace(/ё/g, 'е'); }
 
+  const BOX = /[│┌┐└┘├┤┬┴┼─═║╔╗╚╝╠╣╦╩╬|]{2,}|[│┌┐└┘├┤┬┴┼║╔╗╚╝╠╣╦╩╬]/;
+  // Строка таблицы: ячейки разделены « | », пустые крайние ячейки дают «| …» или «… |».
+  function isRow(l) { return l.includes(' | ') || l.startsWith('| ') || l.endsWith(' |'); }
+  // Границы ячеек строки таблицы: [[start, end], …] по исходной строке.
+  function cells(l) {
+    const out = []; let p = 0; const re = /\s?\|\s?/g; let m;
+    while ((m = re.exec(l))) { out.push([p, m.index]); p = m.index + m[0].length; }
+    out.push([p, l.length]);
+    return out;
+  }
+  function isBox(l) { return BOX.test(l) && !isRow(l); }
+
   function splitLines(text) {
     const out = [];
     for (const raw of text.split(/\r?\n/)) {
-      const l = raw.replace(/\s+/g, ' ').trim();
+      // Псевдографические таблицы сохраняем как есть, чтобы не сбить выравнивание столбцов.
+      const l = BOX.test(raw) ? raw.replace(/\s+$/, '') : raw.replace(/\s+/g, ' ').trim();
       if (l) out.push(l);
     }
     return out;
@@ -83,7 +96,7 @@
 
   // Уровень заголовка строки: 1 — раздел/часть, 2 — глава/приложение/раздел СП, 3 — статья/подраздел, 0 — обычный текст.
   function headingLevel(l) {
-    if (l.length > 160 || l.includes(' | ')) return 0;
+    if (l.length > 160 || isRow(l) || isBox(l)) return 0;
     if (/^(РАЗДЕЛ|Раздел|ЧАСТЬ|Часть)\s+[IVXLC\d]+/.test(l)) return 1;
     if (/^(ГЛАВА|Глава)\s+[\dIVXLC]+/.test(l)) return 2;
     if (/^(ПРИЛОЖЕНИЕ|Приложение)(\s|$)/.test(l) && l.length < 90) return 2;
@@ -108,5 +121,5 @@
     return { text: line.slice(s, e), ranges: rr, cut: [s > 0, e < line.length] };
   }
 
-  root.NPA = { norm, splitLines, stem, makeMatcher, headingLevel, snippet };
+  root.NPA = { norm, isBox, isRow, cells, splitLines, stem, makeMatcher, headingLevel, snippet };
 })(typeof self !== 'undefined' ? self : this);

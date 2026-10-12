@@ -1,5 +1,5 @@
 /* Service worker: хранит приложение и тексты на устройстве, чтобы всё работало без сети. */
-const VERSION = '2d9235ddf2';
+const VERSION = '0c1f7d4911';
 const SHELL = 'npa-shell-' + VERSION;
 const TEXTS = 'npa-texts';
 const ASSETS = ["./", "index.html", "app.css", "app.js", "match.js", "search-worker.js", "manifest.webmanifest", "data/catalog.json", "icons/icon.svg", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png"];

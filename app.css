@@ -289,3 +289,7 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 .dochead .num { font-size: 14px; color: var(--text-3); margin: 0 0 10px; }
 #toast { width: max-content; }
 .chip.zero { opacity: .45; }
+.doc pre.pg { margin: 0; font: 12px/1.35 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre; overflow-x: auto; -webkit-overflow-scrolling: touch; color: var(--text-2); }
+.doc pre.pg + :not(pre.pg) { margin-top: .7em; }
+.doc .fig { display: inline-block; font-size: .75em; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--text-3); vertical-align: 1px; }
+.dochead .note.warn { margin-top: 10px; border-color: color-mix(in srgb, var(--g6) 45%, var(--border)); background: color-mix(in srgb, var(--g6) 10%, var(--surface)); }

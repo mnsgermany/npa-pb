@@ -57,6 +57,13 @@ def derive(d):
     d.update(name=name.strip(), note=note, short=short, kind=kind)
     if year and not d.get('date'): d['year'] = year
 
+def edition(note):
+    m = re.search(r'редакция от (\d{4})-(\d\d)-(\d\d)', note)
+    if m: return f'ред. от {m.group(3)}.{m.group(2)}.{m.group(1)}'
+    m = re.search(r'ред\. от (\d\d\.\d\d\.\d{4})', note)
+    if m: return f'ред. от {m.group(1)}'
+    return ''
+
 with_text = 0
 for d in cat['docs']:
     derive(d)
@@ -66,7 +73,10 @@ for d in cat['docs']:
         s = sources.get(d['id'], {})
         d['text'] = {'h': hashlib.sha1(b).hexdigest()[:10], 'chars': len(b.decode('utf-8')), 'bytes': len(b),
                      'src': {k: s[k] for k in ('url', 'retrieved', 'status') if s.get(k)}}
-        if s.get('edition_note'): d['text']['ed'] = s['edition_note']
+        ed = s.get('edition_override') or edition(s.get('edition_note', ''))
+        if ed: d['text']['ed'] = ed
+        r = s.get('retrieved', '')
+        if re.match(r'\d{4}-\d\d-\d\d$', r): d['text']['src']['retrieved'] = '.'.join(reversed(r.split('-')))
         with_text += 1
     else:
         d.pop('text', None)
